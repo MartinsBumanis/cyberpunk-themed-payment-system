@@ -1,0 +1,14 @@
+{
+  "name": "blackwire-pay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Phone-to-phone payments for a cyberpunk role-play: QR transfers, live balances and a game master console.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
