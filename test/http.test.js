@@ -1,18 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Bank } from '../lib/bank.js';
+import { Hub } from '../lib/hub.js';
 import { createApp } from '../lib/app.js';
 
+// One server with one lobby at /test. `base` is that lobby's address; `origin` is the server root.
+// The master password also opens every lobby's console, so the GM tests log in with it.
 async function start() {
-  const bank = new Bank({ adminPassword: 'gm-secret' });
-  const server = createApp(bank, { lanUrls: () => ['http://192.168.1.50:3000'] });
+  const hub = new Hub({ password: 'gm-secret' });
+  const { bank } = hub.create({ title: 'Test run', slug: 'test' });
+  const server = createApp(hub, { lanUrls: () => ['http://192.168.1.50:3250'] });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const origin = `http://127.0.0.1:${server.address().port}`;
   const stop = () => new Promise((resolve) => {
     server.close(resolve);
     server.closeAllConnections();
   });
-  return { bank, base, stop };
+  return { hub, bank, origin, base: `${origin}/test`, stop };
 }
 
 // A tiny browser: remembers cookies between calls, like one phone would.
@@ -53,11 +56,11 @@ test('players sign up, pay each other, and a parked poll hears about it at once'
     const vee = phone(base);
     const doc = phone(base);
     assert.equal((await vee('/api/me')).status, 401);
-    const config = { bankName: 'BLACKWIRE', currency: '¥', signupsOpen: true, needsJoinCode: false };
+    const config = { bankName: 'BLACKWIRE', currency: '¥', theme: 'blackwire', signupsOpen: true, needsJoinCode: false };
     assert.deepEqual((await vee('/api/boot')).data, { config, me: null });
 
     const veeSnap = (await vee('/api/signup', { handle: 'Vee', pin: '1234' })).data;
-    assert.match(vee.lastCookie, /^sid=[\w-]{32}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=2592000$/);
+    assert.match(vee.lastCookie, /^sid=[\w-]{32}; Path=\/test; HttpOnly; SameSite=Lax; Max-Age=2592000$/, 'the login only applies inside its own lobby');
     const docSnap = (await doc('/api/signup', { handle: 'Doc Ripper', pin: '4321' })).data;
     assert.equal((await vee('/api/me')).data.user.handle, 'Vee');
     assert.deepEqual((await vee('/api/boot')).data, { config, me: veeSnap });
@@ -109,7 +112,7 @@ test('the GM console is locked behind its password and can run the game', async 
     assert.equal((await gm('/api/admin/login', { password: 'guess' })).status, 401);
 
     const state = (await gm('/api/admin/login', { password: 'gm-secret' })).data;
-    assert.deepEqual(state.urls, ['http://192.168.1.50:3000']);
+    assert.deepEqual(state.urls, ['http://192.168.1.50:3250']);
     assert.equal(state.users.length, 1);
     assert.equal(state.users[0].online, true);
     assert.equal(state.supply, 1000);
@@ -182,9 +185,10 @@ test('odd requests are turned away cleanly', async () => {
 });
 
 test('pages and assets are served, and nothing outside the public folder is', async () => {
-  const { base, stop } = await start();
+  const { origin, base, stop } = await start();
   try {
     const get = phone(base);
+    const asset = phone(origin);
     for (const page of ['/', '/pay/K7Q2', '/pay/K7Q2?a=500&m=Cyberarm', '/l/ABCDEFGHJK']) {
       const res = await get(page);
       assert.equal(res.status, 200, page);
@@ -194,15 +198,16 @@ test('pages and assets are served, and nothing outside the public folder is', as
     }
     assert.match((await get('/admin')).text, /src="\/admin\.js"/);
 
-    const css = await get('/style.css');
+    const css = await asset('/style.css');
     assert.equal(css.status, 200);
     assert.equal(css.headers.get('cache-control'), 'no-cache');
-    assert.equal((await get('/style.css', undefined, { 'if-none-match': css.headers.get('etag') })).status, 304);
-    assert.match((await get('/vendor/qrcode.mjs')).headers.get('cache-control'), /max-age/);
-    assert.equal((await get('/fonts/chakra-petch-latin-700-normal.woff2')).headers.get('content-type'), 'font/woff2');
+    assert.equal((await asset('/style.css', undefined, { 'if-none-match': css.headers.get('etag') })).status, 304);
+    assert.match((await asset('/vendor/qrcode.mjs')).headers.get('cache-control'), /max-age/);
+    assert.equal((await asset('/fonts/chakra-petch-latin-700-normal.woff2')).headers.get('content-type'), 'font/woff2');
 
     for (const sneaky of ['/..%2fserver.js', '/%2e%2e/server.js', '/..%5cserver.js', '/vendor/..%2f..%2fpackage.json', '/.gitignore', '/server.js', '/C:%5cWindows%5cwin.ini', '/style.css%00.html', '/nope.css']) {
-      assert.equal((await get(sneaky)).status, 404, sneaky);
+      assert.equal((await asset(sneaky)).status, 404, sneaky);
+      assert.equal((await get(sneaky)).status, 404, `/test${sneaky}`);
     }
   } finally {
     await stop();

@@ -234,7 +234,7 @@ test('with the directory off, players only see people they have traded with', ()
 test('settings are validated', () => {
   const bank = new Bank();
   bank.adminSettings({ bankName: '  Night  Bank ', currency: '€$', startingBalance: 0 });
-  assert.deepEqual(bank.publicConfig(), { bankName: 'Night Bank', currency: '€$', signupsOpen: true, needsJoinCode: false });
+  assert.deepEqual(bank.publicConfig(), { bankName: 'Night Bank', currency: '€$', theme: 'blackwire', signupsOpen: true, needsJoinCode: false });
   assert.equal(bank.signup({ handle: 'Broke', pin: '1234' }).balance, 0);
   rejects(() => bank.adminSettings({ bankName: ' ' }), 'BAD_SETTING');
   rejects(() => bank.adminSettings({ currency: '' }), 'BAD_SETTING');

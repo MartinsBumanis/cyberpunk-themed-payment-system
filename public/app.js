@@ -1,4 +1,4 @@
-import { h, icon, api, digits, money, clock, qrSvg, toast, ask, sfx, buzz, store } from '/ui.js';
+import { h, icon, api, digits, money, clock, qrSvg, toast, ask, sfx, buzz, store, BASE, applyTheme } from '/ui.js';
 
 const root = document.getElementById('app');
 const state = { config: null, me: null };
@@ -9,13 +9,13 @@ let wakePoll = null;
 
 // ------------------------------------------------------------------ routing
 
-// QR codes carry plain paths (/pay/<id>, /l/<code>) so any camera app can open them;
+// QR codes carry plain paths (/<lobby>/pay/<id>, /<lobby>/l/<code>) so any camera app can open them;
 // inside the app every screen is a hash route.
 function adoptDeepLink() {
-  const pay = location.pathname.match(/^\/pay\/([^/]+)/);
-  const card = location.pathname.match(/^\/l\/([^/]+)/);
-  if (pay) history.replaceState(null, '', `/#/pay/${pay[1]}${location.search}`);
-  else if (card) history.replaceState(null, '', '/');
+  const pay = location.pathname.match(/^\/[^/]+\/pay\/([^/]+)/);
+  const card = location.pathname.match(/^\/[^/]+\/l\/([^/]+)/);
+  if (pay) history.replaceState(null, '', `${BASE}/#/pay/${pay[1]}${location.search}`);
+  else if (card) history.replaceState(null, '', `${BASE}/`);
   return card ? card[1] : null;
 }
 
@@ -61,6 +61,7 @@ function render() {
 
 function enter(snap) {
   state.me = snap;
+  applyTheme(snap.settings.theme);
   store.set('handle', snap.user.handle);
   document.title = snap.settings.bankName;
   noteIncoming(snap);
@@ -77,6 +78,7 @@ async function leave() {
   const boot = await api('/api/boot').catch(() => null);
   if (boot) state.config = boot.config;
   if (boot?.me) return enter(boot.me);
+  applyTheme(state.config.theme);
   document.title = state.config.bankName;
   render();
 }
@@ -84,6 +86,7 @@ async function leave() {
 function applySnapshot(snap) {
   const before = state.me;
   state.me = snap;
+  applyTheme(snap.settings.theme);
   document.title = snap.settings.bankName;
   noteIncoming(snap);
   const reskinned = JSON.stringify(before.settings) !== JSON.stringify(snap.settings) || before.user.handle !== snap.user.handle;
@@ -164,14 +167,17 @@ function toAmount(text) {
 
 // Accepts a pay link, an access-card link, or a bare 4-character ID. The host is ignored on purpose:
 // a code printed for one address must still scan when the server is reached through another.
+// A link into a different lobby is reported as such, since its IDs mean nothing here.
 function parseCode(text) {
   const raw = String(text).trim();
   try {
     const url = new URL(raw);
-    const pay = url.pathname.match(/^\/pay\/([A-Za-z0-9]{4})\/?$/);
-    if (pay) return { id: pay[1].toUpperCase(), amount: toAmount(url.searchParams.get('a')), memo: url.searchParams.get('m') ?? '' };
-    const card = url.pathname.match(/^\/l\/([A-Za-z0-9-]{10,12})\/?$/);
-    if (card) return { card: card[1] };
+    const link = url.pathname.match(/^(?:\/([a-z0-9-]+))?\/(pay|l)\/([A-Za-z0-9-]+)\/?$/);
+    if (link?.[1] && `/${link[1]}` !== BASE) return { elsewhere: true };
+    if (link?.[2] === 'pay' && /^[A-Za-z0-9]{4}$/.test(link[3])) {
+      return { id: link[3].toUpperCase(), amount: toAmount(url.searchParams.get('a')), memo: url.searchParams.get('m') ?? '' };
+    }
+    if (link?.[2] === 'l' && /^[A-Za-z0-9-]{10,12}$/.test(link[3])) return { card: link[3] };
   } catch {
     // not a link: maybe a bare ID
   }
@@ -334,6 +340,8 @@ function Auth(route) {
         h('div', { class: 'brand-tag' }, 'Money moves. Nobody asks.')),
       h('div', { class: 'hazard' }),
       route.name === 'pay' && h('p', { class: 'notice' }, 'Log in to finish your transfer.'),
+      // For people who wandered in: the way to set up a game of their own.
+      h('a', { class: 'host-link', href: '/admin' }, 'Run your own role-play? ', h('b', null, 'Make a credits lobby')),
       h('div', { class: 'tabs' },
         tab('login', 'Log in'),
         config.signupsOpen && tab('signup', 'Sign up'),
@@ -497,6 +505,7 @@ function Scan() {
   const scanner = Scanner((text) => {
     const code = parseCode(text);
     if (!code) return 'That is not a pay code.';
+    if (code.elsewhere) return 'That code belongs to a different game.';
     if (code.card) {
       navigate('#/', true);
       useAccessCode(code.card);
@@ -735,7 +744,7 @@ function Receive() {
   };
 
   function paint() {
-    code.replaceChildren(qrSvg(`${location.origin}/pay/${user.id}${payQuery(asked.amount, asked.memo)}`));
+    code.replaceChildren(qrSvg(`${location.origin}${BASE}/pay/${user.id}${payQuery(asked.amount, asked.memo)}`));
     request.replaceChildren(...(asked.amount || asked.memo
       ? [
         h('div', { class: 'panel asking' },
@@ -959,6 +968,7 @@ async function boot() {
     return;
   }
   document.title = (state.me?.settings ?? state.config).bankName;
+  applyTheme((state.me?.settings ?? state.config).theme);
   if (state.me) noteIncoming(state.me);
   render();
   addEventListener('hashchange', onRoute);

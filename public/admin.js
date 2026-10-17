@@ -1,4 +1,4 @@
-import { h, icon, api, money, clock, qrSvg, toast, ask, store } from '/ui.js';
+import { h, icon, api, money, clock, qrSvg, toast, ask, store, BASE, applyTheme, ThemePicker } from '/ui.js';
 
 const root = document.getElementById('gm');
 const watchers = new Set(); // open dialogs that show live numbers
@@ -18,7 +18,8 @@ const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 function adopt(state) {
   S = state;
-  document.title = `${S.settings.bankName} · GM`;
+  applyTheme(S.settings.theme);
+  document.title = `${S.lobby.title} · GM`;
   paintHeader();
   view?.update();
   for (const update of [...watchers]) update();
@@ -87,6 +88,9 @@ function playerBase() {
   return onServer && S.urls.length ? S.urls[0] : location.origin;
 }
 
+// Where this lobby's players go: the address above plus the lobby's path.
+const lobbyLink = () => `${playerBase()}${BASE}`;
+
 function cleanBase(text) {
   const trimmed = text.trim().replace(/\/+$/, '');
   if (!trimmed) return '';
@@ -144,7 +148,7 @@ function Sheet(kind, nodes, tip) {
 function AccessCard(user) {
   return h('div', { class: 'card' },
     h('div', { class: 'card-head' }, h('b', null, S.settings.bankName), h('span', null, 'Access card')),
-    qrSvg(`${playerBase()}/l/${user.code}`),
+    qrSvg(`${lobbyLink()}/l/${user.code}`),
     h('div', { class: 'card-body' },
       h('div', { class: 'card-name' }, user.handle),
       h('div', { class: 'card-meta' }, `ID ${user.id}`),
@@ -160,8 +164,8 @@ function Sign(top, link, name, meta) {
     h('div', { class: 'sign-meta' }, meta));
 }
 
-const PaySign = (user) => Sign('Scan to pay', `${playerBase()}/pay/${user.id}`, user.handle, `${S.settings.bankName} · ID ${user.id}`);
-const JoinPoster = () => Sign(S.settings.bankName, playerBase(), 'Scan to jack in', playerBase());
+const PaySign = (user) => Sign('Scan to pay', `${lobbyLink()}/pay/${user.id}`, user.handle, `${S.settings.bankName} · ID ${user.id}`);
+const JoinPoster = () => Sign(S.settings.bankName, lobbyLink(), 'Scan to jack in', lobbyLink());
 
 // --------------------------------------------------------------- dialogs
 
@@ -171,8 +175,8 @@ function JoinCode() {
     h('p', { class: 'hint' }, signupsOpen
       ? `Players scan this with their phone camera and create their identity${joinCode ? ` (join code: ${joinCode})` : ''}.`
       : 'Sign-ups are closed, so this only helps players who already have an account or an access card.'),
-    h('div', { class: 'qr-big' }, qrSvg(playerBase())),
-    h('p', { class: 'address' }, playerBase()),
+    h('div', { class: 'qr-big' }, qrSvg(lobbyLink())),
+    h('p', { class: 'address' }, lobbyLink()),
     h('button', {
       class: 'btn',
       type: 'button',
@@ -384,8 +388,8 @@ function Manage(id) {
     ].filter(Boolean));
     freeze.textContent = user.frozen ? 'Unfreeze' : 'Freeze';
     clearPin.disabled = !user.hasPin;
-    showCode(accessCode, `${playerBase()}/l/${user.code}`);
-    showCode(payCode, `${playerBase()}/pay/${user.id}`);
+    showCode(accessCode, `${lobbyLink()}/l/${user.code}`);
+    showCode(payCode, `${lobbyLink()}/pay/${user.id}`);
     accessText.textContent = prettyCode(user.code);
   }
 
@@ -480,7 +484,7 @@ function Ledger() {
   const el = h('div', { class: 'stack' },
     h('div', { class: 'toolbar' },
       search,
-      h('a', { class: 'btn', href: '/api/admin/ledger.csv', download: 'ledger.csv' }, 'Export CSV')),
+      h('a', { class: 'btn', href: `${BASE}/api/admin/ledger.csv`, download: `ledger-${S.lobby.slug}.csv` }, 'Export CSV')),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'grid' },
         h('thead', null, h('tr', null, ['TX', 'Time', 'From', 'To', 'Amount', 'Note', ''].map((title) => h('th', null, title)))),
@@ -536,6 +540,8 @@ function Settings() {
   const startingBalance = h('input', { class: 'input', inputMode: 'numeric', value: String(now.startingBalance) });
   const joinCode = h('input', { class: 'input', maxLength: 32, value: now.joinCode, placeholder: 'None', autocomplete: 'off', spellcheck: false });
   const signupsOpen = Toggle('Players can sign up themselves', 'Off: only accounts you create exist, and players log in with their access card.', now.signupsOpen);
+  const theme = ThemePicker(S.themes, now.theme);
+  const password = h('input', { class: 'input', value: S.gmPassword, autocomplete: 'off', spellcheck: false, 'aria-label': 'Console password' });
   const directory = Toggle('Public directory', 'Off: players only see people they have already traded with, and pay everyone else by scanning or typing an ID.', now.directory);
 
   const el = h('div', { class: 'stack settings' },
@@ -550,6 +556,7 @@ function Settings() {
           joinCode: joinCode.value,
           signupsOpen: signupsOpen.box.checked,
           directory: directory.box.checked,
+          theme: theme.value,
         });
         if (saved) toast('Settings saved.');
       },
@@ -562,7 +569,18 @@ function Settings() {
         Labeled('Join code', joinCode, 'Optional word players must enter to sign up.')),
       signupsOpen.el,
       directory.el,
+      h('span', { class: 'label' }, 'Theme for players and this console'),
+      theme.el,
       h('button', { class: 'btn primary', type: 'submit' }, 'Save settings')),
+    h('div', { class: 'section-head' }, h('h2', null, 'Console password')),
+    h('p', { class: 'hint' }, 'Opens this lobby’s console, and only this one. The master password from the lobby hub opens it too.'),
+    h('form', {
+      class: 'inline',
+      onsubmit: async (event) => {
+        event.preventDefault();
+        if (await act('/api/admin/password', { password: password.value })) toast('Password changed.');
+      },
+    }, password, h('button', { class: 'btn', type: 'submit' }, 'Change')),
     h('div', { class: 'section-head' }, h('h2', null, 'Danger zone')),
     h('p', { class: 'hint' }, 'Start over after a test run. A backup is kept on the server.'),
     h('button', { class: 'btn danger', type: 'button', onclick: Wipe }, 'Wipe everything'));
@@ -597,7 +615,7 @@ function Login() {
   },
     h('div', { class: 'brand-mark', style: '--chars: 10' }, 'GM console'),
     h('div', { class: 'hazard' }),
-    Labeled('Password', password, 'Printed in the terminal window where the server was started.'),
+    Labeled('Password', password, 'This lobby’s GM password, or the master password from the lobby hub.'),
     error,
     h('button', { class: 'btn primary big', type: 'submit' }, 'Unlock')));
   password.focus();
@@ -605,6 +623,7 @@ function Login() {
 
 function Console() {
   const brand = h('div', { class: 'gm-brand' });
+  const hubLink = h('a', { class: 'btn small', href: '/admin', hidden: true }, 'My lobbies');
   const stats = h('div', { class: 'gm-stats' });
   const bases = h('datalist', { id: 'gm-bases' });
   const base = h('input', {
@@ -635,7 +654,8 @@ function Console() {
   };
 
   paintHeader = () => {
-    brand.replaceChildren(S.settings.bankName, h('small', null, 'GM console'));
+    brand.replaceChildren(S.settings.bankName, h('small', null, `GM console · ${S.lobby.title}`));
+    hubLink.hidden = !S.hubAccess;
     stats.replaceChildren(
       Stat('Accounts', S.users.length),
       Stat('Online', S.users.filter((user) => user.online).length),
@@ -649,14 +669,14 @@ function Console() {
   root.replaceChildren(
     h('header', { class: 'gm-head' },
       brand,
-      h('button', {
+      h('div', { class: 'gm-head-actions' }, hubLink, h('button', {
         class: 'btn small',
         type: 'button',
         onclick: async () => {
           await api('/api/admin/logout', {}).catch(() => {});
           lock();
         },
-      }, 'Lock')),
+      }, 'Lock'))),
     stats,
     h('section', { class: 'gm-join' },
       h('span', { class: 'label' }, 'Players join at'),

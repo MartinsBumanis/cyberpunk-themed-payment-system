@@ -49,7 +49,11 @@
   src: url(/fonts/share-tech-mono-latin-400-normal.woff2) format('woff2');
 }
 
-:root {
+/* Themes. Each one is a set of colours under its own data-theme value, which the server puts on <html>
+   and the theme swatches carry themselves. Blackwire is also the fallback for anything unthemed.
+   The *-rgb values are the same colours as plain channels, for translucent glows and tints. */
+:root,
+[data-theme='blackwire'] {
   --bg: #050608;
   --panel: #0d1015;
   --panel-2: #161b24;
@@ -62,9 +66,93 @@
   --acid-ink: #0b0a00;
   --cyan: #19e6ff;
   --red: #ff4263;
+  --acid-rgb: 252, 238, 10;
+  --cyan-rgb: 25, 230, 255;
+  --red-rgb: 255, 66, 99;
+  --ink-rgb: 255, 255, 255;
+  --on-tone: #000;
+  --error-ink: #ffb3c0;
+  --scan: rgba(0, 0, 0, .24);
+  --scrim: rgba(3, 4, 6, .9);
   --font: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: 'Share Tech Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Consolas, monospace;
   color-scheme: dark;
+}
+
+/* Synthwave: hot magenta and cyan on deep violet. */
+[data-theme='neon'] {
+  --bg: #0b0518;
+  --panel: #140a26;
+  --panel-2: #1d1033;
+  --line: #2a1844;
+  --line-2: #44306a;
+  --ink: #f6ecff;
+  --dim: #a897c7;
+  --faint: #6d5c8c;
+  --acid: #ff2fd1;
+  --acid-ink: #16001a;
+  --cyan: #00e8ff;
+  --red: #ff5a5f;
+  --acid-rgb: 255, 47, 209;
+  --cyan-rgb: 0, 232, 255;
+  --red-rgb: 255, 90, 95;
+  --ink-rgb: 246, 236, 255;
+  --on-tone: #0b0518;
+  --error-ink: #ffc2cf;
+  --scan: rgba(0, 0, 0, .22);
+  --scrim: rgba(8, 3, 18, .9);
+  color-scheme: dark;
+}
+
+/* Green phosphor terminal, monospaced throughout; incoming money glows amber. */
+[data-theme='toxic'] {
+  --bg: #020a04;
+  --panel: #06120a;
+  --panel-2: #0a1b0f;
+  --line: #123020;
+  --line-2: #1d4a2f;
+  --ink: #c9ffd6;
+  --dim: #6faf82;
+  --faint: #3f6e4e;
+  --acid: #3dff6e;
+  --acid-ink: #021006;
+  --cyan: #ffd23d;
+  --red: #ff4f4f;
+  --acid-rgb: 61, 255, 110;
+  --cyan-rgb: 255, 210, 61;
+  --red-rgb: 255, 79, 79;
+  --ink-rgb: 201, 255, 214;
+  --on-tone: #021006;
+  --error-ink: #ffb8b8;
+  --scan: rgba(0, 0, 0, .32);
+  --scrim: rgba(1, 6, 2, .92);
+  --font: 'Share Tech Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Consolas, monospace;
+  color-scheme: dark;
+}
+
+/* Clean corporate light: white panels, a red brand colour, no scanlines. */
+[data-theme='corpo'] {
+  --bg: #eceff3;
+  --panel: #ffffff;
+  --panel-2: #f4f6f9;
+  --line: #d9dee6;
+  --line-2: #b9c1cd;
+  --ink: #11151c;
+  --dim: #5b6575;
+  --faint: #8b94a3;
+  --acid: #d6001c;
+  --acid-ink: #ffffff;
+  --cyan: #0062d1;
+  --red: #c2410c;
+  --acid-rgb: 214, 0, 28;
+  --cyan-rgb: 0, 98, 209;
+  --red-rgb: 194, 65, 12;
+  --ink-rgb: 17, 21, 28;
+  --on-tone: #ffffff;
+  --error-ink: #9a3412;
+  --scan: transparent;
+  --scrim: rgba(236, 239, 243, .94);
+  color-scheme: light;
 }
 
 *,
@@ -96,9 +184,9 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(90% 46% at 50% 0%, rgba(252, 238, 10, .1), transparent 72%),
-    linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 100% 32px,
-    linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 32px 100%;
+    radial-gradient(90% 46% at 50% 0%, rgba(var(--acid-rgb), .1), transparent 72%),
+    linear-gradient(rgba(var(--ink-rgb), .03) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, rgba(var(--ink-rgb), .03) 1px, transparent 1px) 0 0 / 32px 100%;
 }
 
 /* CRT scanlines over the player app. Switched off wherever a QR code has to be read off the screen. */
@@ -108,7 +196,7 @@ body.player::after {
   inset: 0;
   z-index: 90;
   pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .24) 0 1px, transparent 1px 3px);
+  background: repeating-linear-gradient(0deg, var(--scan) 0 1px, transparent 1px 3px);
 }
 body.plain::after {
   display: none;
@@ -200,7 +288,7 @@ body.offline #app::before {
   z-index: 70;
   padding: calc(6px + env(safe-area-inset-top)) 12px 6px;
   background: var(--red);
-  color: #000;
+  color: var(--on-tone);
   font: 400 12px/1 var(--mono);
   letter-spacing: .18em;
   text-align: center;
@@ -321,7 +409,7 @@ body.offline #app::before {
 .tag {
   flex: none;
   padding: 3px 7px 2px;
-  border: 1px solid rgba(252, 238, 10, .4);
+  border: 1px solid rgba(var(--acid-rgb), .4);
   color: var(--acid);
   font: 400 12px/1.2 var(--mono);
   letter-spacing: .12em;
@@ -340,15 +428,15 @@ body.offline #app::before {
 .notice {
   padding: 11px 14px;
   border-left: 4px solid var(--acid);
-  background: rgba(252, 238, 10, .08);
+  background: rgba(var(--acid-rgb), .08);
   font-size: 15px;
   font-weight: 600;
 }
 .error,
 .notice.bad {
   border-left-color: var(--red);
-  background: rgba(255, 66, 99, .1);
-  color: #ffb3c0;
+  background: rgba(var(--red-rgb), .1);
+  color: var(--error-ink);
 }
 
 .field {
@@ -378,7 +466,7 @@ body.offline #app::before {
 }
 .input:focus {
   border-color: var(--acid);
-  box-shadow: 0 0 0 1px var(--acid), 0 0 22px rgba(252, 238, 10, .14);
+  box-shadow: 0 0 0 1px var(--acid), 0 0 22px rgba(var(--acid-rgb), .14);
 }
 
 .tabs {
@@ -673,7 +761,7 @@ body.offline .link-state i {
   font-variant-numeric: tabular-nums;
 }
 .tx.in .tx-icon {
-  border-color: rgba(25, 230, 255, .4);
+  border-color: rgba(var(--cyan-rgb), .4);
   color: var(--cyan);
 }
 .tx.in .tx-amount {
@@ -865,7 +953,7 @@ body.offline .link-state i {
   overflow-y: auto;
   padding: 20px;
   place-items: center;
-  background: rgba(3, 4, 6, .9);
+  background: var(--scrim);
 }
 
 .dialog {
@@ -901,7 +989,7 @@ body.offline .link-state i {
 
 .result {
   --tone: var(--acid);
-  --glow: rgba(252, 238, 10, .16);
+  --glow: rgba(var(--acid-rgb), .16);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -912,7 +1000,7 @@ body.offline .link-state i {
 }
 .result.got {
   --tone: var(--cyan);
-  --glow: rgba(25, 230, 255, .16);
+  --glow: rgba(var(--cyan-rgb), .16);
 }
 .result-body {
   display: flex;
@@ -933,7 +1021,7 @@ body.offline .link-state i {
   margin-bottom: 16px;
   place-items: center;
   background: var(--tone);
-  color: #000;
+  color: var(--on-tone);
   clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px);
   animation: pop .42s cubic-bezier(.2, 1.5, .4, 1) both;
 }
@@ -1042,13 +1130,13 @@ body.offline .link-state i {
 @keyframes flash-up {
   from {
     color: var(--cyan);
-    text-shadow: 0 0 26px rgba(25, 230, 255, .8);
+    text-shadow: 0 0 26px rgba(var(--cyan-rgb), .8);
   }
 }
 @keyframes flash-down {
   from {
     color: var(--red);
-    text-shadow: 0 0 26px rgba(255, 66, 99, .7);
+    text-shadow: 0 0 26px rgba(var(--red-rgb), .7);
   }
 }
 @keyframes glitch-a {
@@ -1105,4 +1193,67 @@ body.offline .link-state i {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* --------------------------------------------------------------- themes */
+
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.theme-option {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.theme-option.on {
+  border-color: var(--acid);
+  box-shadow: inset 0 0 0 1px var(--acid);
+}
+.theme-option small {
+  color: var(--dim);
+  font-size: 13px;
+}
+/* Shows a theme's own colours: background, primary, incoming and panel. */
+.swatch {
+  display: inline-grid;
+  flex: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  width: 58px;
+  height: 24px;
+  padding: 3px;
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+}
+.swatch i:nth-child(1) {
+  background: var(--acid);
+}
+.swatch i:nth-child(2) {
+  background: var(--cyan);
+}
+.swatch i:nth-child(3) {
+  background: var(--panel-2);
+}
+
+/* Above the login tabs, for visitors who want to host a game rather than join this one. */
+.host-link {
+  padding: 10px 14px;
+  border: 1px dashed var(--line-2);
+  color: var(--dim);
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+}
+.host-link b {
+  color: var(--acid);
+  white-space: nowrap;
 }

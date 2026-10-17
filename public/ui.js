@@ -3,6 +3,18 @@ import qrcode from '/vendor/qrcode.mjs';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Lobby pages live under /<lobby>/; the hub at /admin has no prefix.
+const first = location.pathname.split('/')[1];
+export const BASE = first && first !== 'admin' ? `/${first}` : '';
+
+// Switches the colour scheme live, and gives the phone's browser bar the matching colour.
+export function applyTheme(theme) {
+  if (!theme) return;
+  document.documentElement.dataset.theme = theme;
+  const bar = document.querySelector('meta[name=theme-color]');
+  if (bar) bar.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+}
+
 // Strings passed as children become text nodes, never markup, so player-chosen names and memos can't inject HTML.
 export function h(tag, props, ...children) {
   const el = document.createElement(tag);
@@ -57,7 +69,9 @@ export class ApiError extends Error {
 }
 
 // GET when `body` is undefined, otherwise a JSON POST. Status 0 means the server could not be reached.
+// Lobby API paths are written as /api/... and sent to the current lobby.
 export async function api(path, body, { signal } = {}) {
+  if (path.startsWith('/api/') && !path.startsWith('/api/hub/')) path = BASE + path;
   const init = body === undefined
     ? { signal }
     : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal };
@@ -217,4 +231,40 @@ export function buzz(pattern) {
   } catch {
     // no vibration on this device
   }
+}
+
+export const THEME_INFO = {
+  blackwire: ['Blackwire', 'Acid yellow on black'],
+  neon: ['Neon', 'Synthwave magenta and cyan'],
+  toxic: ['Toxic', 'Green phosphor terminal'],
+  corpo: ['Corpo', 'Clean, light, corporate'],
+};
+
+// One card per theme. Each swatch carries its own data-theme, so it shows that theme's real colours.
+export function ThemePicker(themes, selected) {
+  let value = selected;
+  const el = h('div', { class: 'theme-picker', role: 'radiogroup', 'aria-label': 'Theme' });
+  const paint = () => el.replaceChildren(...themes.map((name) => {
+    const [label, hint] = THEME_INFO[name] ?? [name, ''];
+    return h('button', {
+      class: `theme-option ${name === value ? 'on' : ''}`,
+      type: 'button',
+      role: 'radio',
+      'aria-checked': String(name === value),
+      onclick: () => {
+        value = name;
+        paint();
+      },
+    },
+      h('span', { class: 'swatch', 'data-theme': name }, h('i'), h('i'), h('i')),
+      h('b', null, label),
+      h('small', null, hint));
+  }));
+  paint();
+  return {
+    el,
+    get value() {
+      return value;
+    },
+  };
 }
