@@ -18,9 +18,11 @@ async function start() {
   return { hub, bank, origin, base: `${origin}/test`, stop };
 }
 
-// A tiny browser: remembers cookies between calls, like one phone would.
+// A tiny browser: remembers cookies between calls, like one phone would. Every call goes to the same
+// lobby, so cookies are kept per name, and clearing one only counts if it targets the same path.
 function phone(base) {
   const jar = new Map();
+  const paths = new Map();
   return async function call(pathname, body, headers = {}) {
     const res = await fetch(base + pathname, {
       method: body === undefined ? 'GET' : 'POST',
@@ -32,12 +34,17 @@ function phone(base) {
       },
       body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
     });
-    for (const cookie of res.headers.getSetCookie()) {
+    call.cookies = res.headers.getSetCookie();
+    for (const cookie of call.cookies) {
       const [pair] = cookie.split(';');
       const [name, value] = pair.split('=');
-      if (value) jar.set(name, value);
-      else jar.delete(name);
-      call.lastCookie = cookie;
+      const scope = /Path=([^;]+)/.exec(cookie)?.[1];
+      if (value) {
+        jar.set(name, value);
+        paths.set(name, scope);
+      } else if (paths.get(name) === scope) {
+        jar.delete(name);
+      }
     }
     const text = await res.text();
     let data = null;
@@ -60,7 +67,8 @@ test('players sign up, pay each other, and a parked poll hears about it at once'
     assert.deepEqual((await vee('/api/boot')).data, { config, me: null });
 
     const veeSnap = (await vee('/api/signup', { handle: 'Vee', pin: '1234' })).data;
-    assert.match(vee.lastCookie, /^sid=[\w-]{32}; Path=\/test; HttpOnly; SameSite=Lax; Max-Age=2592000$/, 'the login only applies inside its own lobby');
+    assert.match(vee.cookies[0], /^sid=[\w-]{32}; Path=\/test; HttpOnly; SameSite=Lax; Max-Age=2592000$/, 'the login only applies inside its own lobby');
+    assert.equal(vee.cookies[1], 'sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0', 'and drops any site-wide login left from before lobbies');
     const docSnap = (await doc('/api/signup', { handle: 'Doc Ripper', pin: '4321' })).data;
     assert.equal((await vee('/api/me')).data.user.handle, 'Vee');
     assert.deepEqual((await vee('/api/boot')).data, { config, me: veeSnap });

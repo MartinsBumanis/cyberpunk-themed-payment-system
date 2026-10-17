@@ -351,3 +351,35 @@ test('organizers, ownership and sign-up rules survive a restart', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('a login cookie left over from before lobbies never shadows the lobby\'s own', async () => {
+  const hub = new Hub({ password: 'master' });
+  const main = hub.create({ title: 'Main' });
+  hub.create({ title: 'Clouds' });
+  // What an upgraded phone carries: a site-wide session from the old version, still valid in "main".
+  const vee = main.bank.signup({ handle: 'Vee', pin: '1234' });
+  const legacy = main.bank.openSession({ uid: vee.id });
+  const { origin, stop } = await serve(hub);
+  const call = (pathname, cookie, body) => fetch(origin + pathname, {
+    method: body ? 'POST' : 'GET',
+    headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  try {
+    assert.equal((await call('/main/api/me', `sid=${legacy}`)).status, 200, 'an upgraded phone stays logged in to main');
+
+    // Logging in to another lobby: the browser then sends that lobby's cookie first, the old one after it.
+    const signup = await call('/clouds/api/signup', `sid=${legacy}`, { handle: 'Judy', pin: '1234' });
+    const fresh = /^sid=([^;]+); Path=\/clouds/.exec(signup.headers.getSetCookie()[0])[1];
+    assert.ok(signup.headers.getSetCookie().includes('sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'), 'the old cookie is dropped');
+    const me = await (await call('/clouds/api/me', `sid=${fresh}; sid=${legacy}`)).json();
+    assert.equal(me.user.handle, 'Judy', 'the lobby\'s own cookie wins over the leftover one');
+
+    // Logging out of main with the old cookie actually logs out.
+    const out = await call('/main/api/logout', `sid=${legacy}`, {});
+    assert.ok(out.headers.getSetCookie().includes('sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'));
+    assert.equal((await call('/main/api/me', `sid=${legacy}`)).status, 401);
+  } finally {
+    await stop();
+  }
+});
