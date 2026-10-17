@@ -268,3 +268,22 @@ export function ThemePicker(themes, selected) {
     },
   };
 }
+
+// Games opened on this phone, newest first, so the front page can offer them again.
+export function recentLobbies() {
+  try {
+    const list = JSON.parse(store.get('recent-lobbies') ?? '[]');
+    return Array.isArray(list) ? list.filter((entry) => entry && typeof entry.slug === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberLobby(slug, name) {
+  const list = recentLobbies().filter((entry) => entry.slug !== slug);
+  store.set('recent-lobbies', JSON.stringify([{ slug, name, at: Date.now() }, ...list].slice(0, 8)));
+}
+
+export function forgetLobby(slug) {
+  store.set('recent-lobbies', JSON.stringify(recentLobbies().filter((entry) => entry.slug !== slug)));
+}

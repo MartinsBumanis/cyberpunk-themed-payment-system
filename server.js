@@ -51,9 +51,10 @@ server.on('error', (err) => {
 server.listen(port, host, () => {
   const local = `http://localhost${port === 80 ? '' : `:${port}`}`;
   const [first = local, ...others] = lanUrls();
-  const lobbies = hub.list();
+  const lobbies = hub.list({ master: true });
   console.log(`\n  Payment grid online with ${lobbies.length} ${lobbies.length === 1 ? 'lobby' : 'lobbies'}.\n`);
-  console.log(`  Lobby hub        ${local}/admin`);
+  console.log(`  Front page       ${first}`);
+  console.log(`  Game hub         ${local}/admin`);
   console.log(`  Master password  ${hub.password}`);
   for (const { slug, title, isDefault } of lobbies) {
     console.log(`  ${isDefault ? 'Default lobby' : 'Lobby        '}    ${first}/${slug}  (${title})`);

@@ -166,7 +166,7 @@ function LobbyCard(lobby) {
       h('div', { class: 'lobby-name' },
         h('b', null, lobby.title),
         h('a', { class: 'mono', href: `/${lobby.slug}/`, target: '_blank', rel: 'noopener' }, `/${lobby.slug}`)),
-      lobby.isDefault && h('span', { class: 'tag live', title: 'The bare address and old links lead here' }, 'Default')),
+      lobby.isDefault && h('span', { class: 'tag live', title: 'Links printed before lobbies existed lead here' }, 'Default')),
     h('div', { class: 'lobby-stats' },
       h('span', null, h('b', null, lobby.accounts), ' accounts'),
       h('span', null, h('b', null, lobby.online), ' online'),

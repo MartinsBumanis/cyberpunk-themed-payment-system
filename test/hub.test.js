@@ -171,11 +171,17 @@ test('pages carry their lobby theme, and old links lead to the default lobby', a
     assert.match((await get('/beta/pay/K7Q2')).text, /data-theme="corpo"/);
     assert.match((await get('/beta/admin')).text, /src="\/admin\.js"/);
     assert.match((await get('/admin')).text, /src="\/hub\.js"/);
-    assert.equal((await get('/nowhere/')).status, 404);
+    const lost = await get('/nowhere/');
+    assert.equal(lost.status, 302, 'a mistyped game address goes back to the front page');
+    assert.equal(lost.headers.get('location'), '/?missing=nowhere');
+    assert.equal((await get('/nowhere/admin')).headers.get('location'), '/?missing=nowhere');
+    assert.equal((await get('/nope.png')).status, 404);
 
+    // The bare address is a front page for entering a game code, not a way into anyone's game.
     const root = await get('/');
-    assert.equal(root.status, 302);
-    assert.equal(root.headers.get('location'), '/alpha/');
+    assert.equal(root.status, 200);
+    assert.match(root.text, /src="\/home\.js"/);
+    assert.doesNotMatch(root.text, /alpha|beta/i);
     assert.equal((await get('/pay/K7Q2?a=5')).headers.get('location'), '/alpha/pay/K7Q2?a=5');
     assert.equal((await get('/l/ABCDEFGHJK')).headers.get('location'), '/alpha/l/ABCDEFGHJK');
 
@@ -188,7 +194,7 @@ test('pages carry their lobby theme, and old links lead to the default lobby', a
   }
   const empty = await serve(new Hub({ password: 'pw' }));
   try {
-    assert.equal((await browser(empty.origin)('/')).headers.get('location'), '/admin', 'with no lobbies, / leads to the hub');
+    assert.equal((await browser(empty.origin)('/')).status, 200, 'the front page works before any lobby exists');
   } finally {
     await empty.stop();
   }

@@ -1,4 +1,4 @@
-import { h, icon, api, digits, money, clock, qrSvg, toast, ask, sfx, buzz, store, BASE, applyTheme } from '/ui.js';
+import { h, icon, api, digits, money, clock, qrSvg, toast, ask, sfx, buzz, store, BASE, applyTheme, rememberLobby } from '/ui.js';
 
 const root = document.getElementById('app');
 const state = { config: null, me: null };
@@ -348,6 +348,7 @@ function Auth(route) {
         tab('card', 'Access card')),
       form,
       mode === 'login' && !config.signupsOpen && h('p', { class: 'hint' }, 'New identities are issued by your game master.'),
+      h('a', { class: 'link', href: '/' }, 'Different game? Enter its code'),
     ].filter(Boolean));
   }
 }
@@ -874,6 +875,7 @@ function Profile() {
     }, user.hasPin && current.el, next.el, error, save),
     h('div', { class: 'section-head' }, h('h2', null, 'This phone')),
     sound,
+    h('a', { class: 'btn', href: '/' }, 'Switch to another game'),
     h('button', {
       class: 'btn danger',
       type: 'button',
@@ -969,6 +971,7 @@ async function boot() {
   }
   document.title = (state.me?.settings ?? state.config).bankName;
   applyTheme((state.me?.settings ?? state.config).theme);
+  rememberLobby(BASE.slice(1), (state.me?.settings ?? state.config).bankName);
   if (state.me) noteIncoming(state.me);
   render();
   addEventListener('hashchange', onRoute);

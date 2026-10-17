@@ -25,7 +25,8 @@ Needs [Node.js](https://nodejs.org) 18 or newer. There is nothing to install.
 node server.js
 ```
 
-The terminal prints the address of the lobby hub, the master password, and the address of each lobby.
+The terminal prints the front page address (where players enter a game code), the game hub address,
+the master password, and the address of each lobby.
 Stopping the server (Ctrl+C) keeps all accounts and balances.
 
 | Option | Example | What it does |
@@ -39,8 +40,8 @@ Stopping the server (Ctrl+C) keeps all accounts and balances.
 
 ### Same Wi-Fi
 
-Put the laptop and the phones on the same Wi-Fi and have players open the address from the terminal,
-or scan the join code from the GM console.
+Put the laptop and the phones on the same Wi-Fi and have players open their lobby's address from the
+terminal (or the front page, then enter the game code), or scan the join code from the GM console.
 
 - The first time, Windows asks whether Node may accept connections. Allow it for private networks,
   otherwise phones cannot reach the laptop.
@@ -98,7 +99,9 @@ invite code or switching it off (see [The server owner](#the-server-owner)).
 
 ## Players
 
-- **Join**: open the address, choose a handle and a PIN. Or scan an access card made by the GM.
+- **Join**: scan the GM's join code, or open the server address and enter the game code the GM gives
+  out (e.g. `night-city`). Then choose a handle and a PIN, or scan an access card made by the GM.
+  The front page remembers games opened on that phone, and each game's login screen links back to it.
 - **Pay**: *Scan to pay* and point at someone's code, or *Send* and pick them from the list.
 - **Get paid**: *Receive* shows your code. *Request a set amount* puts the price and a note into the
   code, so the payer only has to confirm.
@@ -113,8 +116,8 @@ several lobbies at the same time.
 
 ## Organizers
 
-Anyone can run their own game. `/admin` is the **game hub**, and every lobby's login screen links to it
-("Run your own role-play? Make a credits lobby"). There, people register an organizer account with a
+Anyone can run their own game. `/admin` is the **game hub**, and the front page and every lobby's login
+screen link to it ("Run your own role-play? Make a credits lobby"). There, people register an organizer account with a
 name and a password, then create and run their own lobbies. Organizers only ever see their own lobbies.
 
 In the hub, an organizer can:
@@ -135,9 +138,9 @@ lobby (with who made it) and can open any console, plus:
   e-mail, so this is the only way back in). Deleting an organizer removes their lobbies too.
 - **Registration**: switch self-registration off, require an invite code, and set how many lobbies each
   organizer may have (5 by default; yours are unlimited).
-- **Make default**: the bare server address, and links printed before lobbies existed, lead to this
-  lobby. Your first lobby becomes the default automatically; an organizer's lobby only does if you
-  choose it.
+- **Make default**: links printed before lobbies existed (`/pay/…`, `/l/…`) lead to this lobby.
+  Your first lobby becomes the default automatically. The bare server address never leads into a
+  game: it is a front page where players enter their game code.
 
 Deleted lobbies are moved to `data/deleted/`, not erased.
 
@@ -170,7 +173,8 @@ over that lobby's `db.json`. Lobbies, organizers and the master password are in 
 
 Upgrading from the version without lobbies needs nothing: on first start the old `data/db.json`
 becomes the lobby `main`, its GM password becomes the master password, phones stay logged in, and
-old QR codes keep working because they lead to the default lobby.
+old QR codes keep working because they lead to the default lobby. Players who used to open the bare
+address now enter the code `main` there (or use `/main` directly).
 
 ## Tests
 
